@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.DS_Store
+.env
+
+# model files
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.safetensors
+
+# logs and outputs
+outputs/
+results/
+logs/
+checkpoints/
+
+# dataset or temporary files
+*.zip
+*.rar

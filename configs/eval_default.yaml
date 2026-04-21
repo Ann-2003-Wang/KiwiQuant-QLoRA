@@ -1,0 +1,14 @@
+project_root: .
+experiment_name: qwen25_7b_finance_lora
+seed: 42
+
+model_name: Qwen/Qwen2.5-7B-Instruct
+
+model:
+  cache_dir: /225040103/hf_cache
+  local_files_only: false
+
+eval:
+  max_new_tokens: 256
+  temperature: 0.0
+  judge_model: deepseek-chat

@@ -1,0 +1,220 @@
+
+\documentclass[UTF8,a4paper,12pt]{ctexart}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{caption}
+\captionsetup{font=small}
+\usepackage{amsmath}
+
+\title{基于 QLoRA 的 Qwen2.5-7B-Instruct 金融问答微调实验报告}
+\author{学生姓名}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{研究背景与任务定义}
+近年来，大语言模型在通用问答和指令跟随任务上取得了显著进展。然而，在金融等专业领域场景中，模型是否能够通过参数高效微调获得进一步提升，仍然值得系统验证。本实验选取 \texttt{Qwen/Qwen2.5-7B-Instruct} 作为基础模型，采用 QLoRA 方法进行监督微调（SFT），并基于 \texttt{FinGPT/fingpt-fineval} 数据集构建金融问答实验流程。
+
+本实验的核心问题为：在金融问答任务上，针对已经较强的开源 instruct 模型，使用有限规模领域数据进行 QLoRA 微调，能否显著提升模型整体回答质量。
+
+\section{数据集与预处理}
+本实验使用 Hugging Face 上的 \texttt{FinGPT/fingpt-fineval} 数据集。原始数据包括训练集和测试集两部分。经过去重、去空值、标准化处理后，最终得到如下数据划分结果：
+
+\begin{table}[H]
+\centering
+\caption{数据集划分结果}
+\begin{tabular}{lc}
+\toprule
+数据阶段 & 样本数 \\
+\midrule
+原始样本数 & 1321 \\
+清洗后样本数 & 1307 \\
+训练集 & 939 \\
+验证集 & 104 \\
+测试集 & 264 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+在数据格式化过程中，本实验将原始样本中的 instruction 信息与问题文本进行拼接，构造成更符合 instruction-following 场景的用户输入，从而增强模型对任务语境的利用能力。
+
+\section{方法设计}
+\subsection{基础模型}
+本实验采用 \texttt{Qwen/Qwen2.5-7B-Instruct} 作为基础模型。该模型具有较强的中文问答与指令理解能力，因此适合作为金融问答任务中的 baseline 与微调对象。
+
+\subsection{微调方法}
+本实验采用 QLoRA 进行监督微调。QLoRA 的核心思想是在 4-bit 量化模型基础上，仅训练少量低秩适配参数，从而在显著降低显存需求的同时保留较强的领域适配能力。
+
+本实验中 LoRA 主要作用于注意力相关模块，包括：
+\begin{itemize}
+    \item \texttt{q\_proj}
+    \item \texttt{k\_proj}
+    \item \texttt{v\_proj}
+    \item \texttt{o\_proj}
+\end{itemize}
+
+\subsection{训练配置}
+实验主要配置如下：
+
+\begin{table}[H]
+\centering
+\caption{训练参数配置}
+\begin{tabular}{lc}
+\toprule
+参数 & 配置 \\
+\midrule
+基础模型 & Qwen2.5-7B-Instruct \\
+微调方法 & QLoRA \\
+最大长度 & 1024 \\
+训练 batch size & 2 \\
+验证 batch size & 2 \\
+梯度累积步数 & 8 \\
+学习率 & 0.0001 \\
+训练轮数 & 1 \\
+LoRA rank & 16 \\
+LoRA alpha & 32 \\
+LoRA dropout & 0.05 \\
+记录步长 & 5 \\
+验证步长 & 10 \\
+保存步长 & 50 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{实验流程}
+本实验整体流程包括以下步骤：
+
+\begin{enumerate}[leftmargin=2em]
+    \item 加载并清洗 \texttt{FinGPT/fingpt-fineval} 数据集；
+    \item 构造适合 SFT 的训练文本与适合推理的 prompt；
+    \item 基于 QLoRA 对 \texttt{Qwen2.5-7B-Instruct} 进行监督微调；
+    \item 在测试集上分别运行 Base 与 SFT 模型；
+    \item 使用 DeepSeek 作为 judge 对两种回答进行 pairwise 评估；
+    \item 汇总平均分、胜率与 tie 比例，并绘制训练曲线和结果对比图。
+\end{enumerate}
+
+\section{实验结果}
+
+\subsection{训练结果}
+本实验共训练 1 个 epoch，总训练步数为 59。训练过程中同时记录了训练损失与验证损失。总体来看，训练损失从约 2.48 下降到末期约 0.92，验证损失则从约 1.89 下降到约 0.93，表明模型训练过程较为稳定，且呈现出明显的收敛趋势。
+
+\begin{table}[H]
+\centering
+\caption{训练结果摘要}
+\begin{tabular}{lc}
+\toprule
+指标 & 数值 \\
+\midrule
+训练轮数 & 1 \\
+总训练步数 & 59 \\
+最终 train loss & 1.327 \\
+最终 eval loss & 0.9332 \\
+训练总时长（秒） & 1048.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.78\textwidth]{outputs/figures/loss_curve.png}
+    \caption{训练损失与验证损失曲线}
+    \label{fig:loss_curve}
+\end{figure}
+
+从图 \ref{fig:loss_curve} 可以看出，训练损失与验证损失均呈明显下降趋势。尤其在前半段，loss 下降速度较快，说明模型在训练初期迅速学习到了金融问答任务中的主要模式；随着训练进行，loss 下降幅度逐渐减小，后半段趋于平稳，表明模型开始接近当前设置下的收敛区域。
+
+\subsection{模型评估结果}
+在测试集上，本实验对原始模型（Base）与微调模型（SFT）分别生成回答，并使用 DeepSeek 作为 judge 对两者进行 pairwise 评估，最终结果如下：
+
+\begin{table}[H]
+\centering
+\caption{Base 与 SFT 模型评估结果}
+\begin{tabular}{lc}
+\toprule
+指标 & 数值 \\
+\midrule
+测试样本数 & 264 \\
+Base 平均分 & 8.2348 \\
+SFT 平均分 & 7.4848 \\
+Base 胜率 & 0.5492 \\
+SFT 胜率 & 0.1705 \\
+Tie 比例 & 0.2803 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.62\textwidth]{outputs/figures/score_bar.png}
+    \caption{Base 与 SFT 平均分对比}
+    \label{fig:score_bar}
+\end{figure}
+
+从图 \ref{fig:score_bar} 可以看出，Base 模型平均分高于 SFT 模型。结合胜率指标可知，当前配置下微调模型虽然学到了训练数据分布，但整体回答质量仍未超过原始 baseline。
+
+\section{结果分析}
+
+\subsection{总体分析}
+从训练结果来看，模型在训练集和验证集上的 loss 均明显下降，说明监督微调过程是有效的；但从最终测试集 pairwise 评估结果来看，SFT 模型整体仍弱于 Base 模型。这说明，对于已经较强的 instruct 模型，有限规模金融领域数据上的 QLoRA 微调并不一定带来直接性能提升。
+
+这一结果可能由以下几个因素导致：
+\begin{enumerate}[leftmargin=2em]
+    \item 基础模型 \texttt{Qwen2.5-7B-Instruct} 本身已经具备较强的中文 instruction-following 能力；
+    \item 金融领域数据虽能让模型学习任务分布，但不一定足以改善整体泛化能力；
+    \item 微调后的模型可能更贴近训练集答案风格，但这种风格未必优于原始模型的自然表达和解释能力；
+    \item 基于 LLM 的 judge 评估方式虽灵活，但仍可能引入一定噪声。
+\end{enumerate}
+
+\subsection{案例分析}
+为了更细致地理解 Base 与 SFT 的差异，本实验选取若干代表性样本进行案例分析。
+
+\paragraph{案例一：共同失败型样本（id=64）}
+该题考查外债负债率指标，标准答案为 D，但 Base 与 SFT 均选择了 A。Judge 最终将该样本判定为 Tie，且双方得分均为 0。该案例表明，在强事实约束的金融单选题上，若模型没有正确调用相关知识，两种模型可能同时失败，当前 SFT 尚未显著改善此类知识性错误。
+
+\paragraph{案例二：评估噪声型样本（id=67）}
+该题标准答案为 B。SFT 最终给出了正确选项 B，而 Base 最终给出了错误选项 C，但 judge 却偏向 Base。该案例说明，基于大模型的 judge 评估虽然具有较好的灵活性，但在涉及计算题或多步骤推理题时仍可能出现偏差，因此实验结果应理解为近似评价，而非绝对真值。
+
+\paragraph{案例三：Base 因解释更完整而胜出（id=94）}
+在该题中，Base 与 SFT 都给出了正确答案 C，但 Base 进一步解释了其他选项错误的原因，而 SFT 仅输出简短答案。Judge 最终判定 Base 更优。该案例说明，在金融和会计类题目中，回答质量不仅取决于是否选对答案，还取决于解释的完整性与专业性。
+
+\paragraph{案例四：Base 在计算类题目上更稳定（id=142）}
+该题要求计算所有者权益。Base 给出了完整的计算过程并得出正确答案 390 万元；而 SFT 直接选择了错误选项 A。Judge 最终判定 Base 胜出。该案例表明，当前 Base 模型在结构化计算题上的稳定性更强，而 SFT 并未在此类题目上体现出明显优势。
+
+\paragraph{案例五：Base 与 SFT 都正确，但 Base 质量更高（id=211）}
+在该题中，Base 与 SFT 都识别出了正确选项 C，但 Base 明确说明了错误项所在，而 SFT 仅重复了选项内容。Judge 最终仍偏向 Base。该案例说明，即使两种模型都能给出正确答案，judge 仍会根据解释深度、专业表达和完整性进一步区分回答质量。
+
+\paragraph{案例六：SFT 成功纠正 Base 错误（id=263）}
+该题标准答案为 A。Base 的回答存在分析自相矛盾的问题，虽然讨论到了选项 A 的权益属性，但最终错误地选择了 C；而 SFT 直接给出了正确答案 A。Judge 最终判定 SFT 胜出。该案例说明，在部分客观题上，SFT 能够减少冗余解释导致的推理偏移，表现出更直接的答案判断能力。
+
+\paragraph{案例七：SFT 在概念题上优于 Base（id=206）}
+该题考查期货交易的真正目的，标准答案为 B。Base 错误地选择了 D，并将多种功能混淆为“真正目的”；而 SFT 准确回答了 B。Judge 判定 SFT 胜出。该案例说明，在某些概念性金融题目上，SFT 能够比 Base 更准确地聚焦题目要求。
+
+综合这些案例可以看出，Base 模型的主要优势体现在解释完整性和计算稳定性上，而 SFT 的局部优势主要体现在少量客观题的直接判断上。另一方面，个别样本也提示 LLM judge 的评估结果可能存在噪声，因此结论应结合案例分析进行综合解释。
+
+\section{后续优化方向}
+基于当前实验结果，后续可从以下几个方向继续优化：
+
+\begin{enumerate}[leftmargin=2em]
+    \item 调整学习率、训练轮数与 LoRA 超参数；
+    \item 进一步优化 instruction 与 question 的拼接方式；
+    \item 对不同类型题目分别进行误差分析；
+    \item 引入更严格的规则评估，例如选项匹配准确率；
+    \item 比较不同 backbone，例如更小参数规模或更新版本的 Qwen 模型。
+\end{enumerate}
+
+\section{结论}
+本实验完成了基于 \texttt{Qwen2.5-7B-Instruct} 的金融问答 QLoRA 微调流程，包括数据准备、训练、推理、judge 评估和结果可视化。实验结果表明，模型训练过程稳定，训练损失和验证损失均明显下降，但在最终整体评估中，微调模型仍未超过原始 baseline。
+
+这一结果说明，对于能力较强的开源 instruct 模型，有限规模金融领域 SFT 并不必然带来整体性能提升。未来仍需要在数据质量、提示模板、LoRA 配置与评估方式等方面继续深入优化。
+
+\end{document}

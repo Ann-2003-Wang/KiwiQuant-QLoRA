@@ -1,0 +1,39 @@
+finance-lora-sft/
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── .env.example
+├── configs/
+│   ├── model_qwen25_7b.yaml
+│   ├── train_default.yaml
+│   └── eval_default.yaml
+├── data/
+│   ├── raw/
+│   ├── interim/
+│   └── processed/
+├── outputs/
+│   ├── checkpoints/
+│   ├── adapters/
+│   ├── predictions/
+│   ├── eval/
+│   └── figures/
+├── src/
+│   ├── config.py
+│   ├── data_prepare.py
+│   ├── dataset_builder.py
+│   ├── model_loader.py
+│   ├── train_sft.py
+│   ├── infer_base.py
+│   ├── infer_sft.py
+│   ├── judge_eval.py
+│   ├── metrics.py
+│   ├── plot_results.py
+│   └── utils.py
+├── scripts/
+│   ├── run_prepare.sh
+│   ├── run_train.sh
+│   ├── run_infer.sh
+│   └── run_eval.sh
+└── notebooks/
+    └── analysis.ipynb
+    

@@ -1,0 +1,43 @@
+project_root: .
+experiment_name: qwen25_7b_finance_lora
+seed: 42
+
+model_name: Qwen/Qwen2.5-7B-Instruct
+
+model:
+  cache_dir: /225040103/finance_lora_sft/hf_cache
+  local_files_only: true
+
+data:
+  source_type: hf
+  hf_dataset_name: FinGPT/fingpt-fineval
+  hf_split_train: train
+  hf_split_test: test
+  val_ratio: 0.1
+
+train:
+  use_qlora: true
+  max_seq_length: 1024
+
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 8
+
+  learning_rate: 0.00005
+  num_train_epochs: 1
+
+  logging_strategy: steps
+  logging_steps: 5
+
+  eval_strategy: steps
+  eval_steps: 10
+
+  save_strategy: steps
+  save_steps: 10
+
+  warmup_ratio: 0.03
+  save_total_limit: 2
+
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
